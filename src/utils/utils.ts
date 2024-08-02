@@ -12,7 +12,10 @@ export function isEmpty(value: any): boolean {
 
 export type SelectorCollection<T> = string | NodeListOf<Element> | T[];
 
-export function ensureAllElements<T extends HTMLElement>(selectorElement: SelectorCollection<T>, context: HTMLElement = document as unknown as HTMLElement): T[] {
+export function ensureAllElements<T extends HTMLElement>(
+    selectorElement: SelectorCollection<T>,
+    context: HTMLElement = document.body
+): T[] {
     if (isSelector(selectorElement)) {
         return Array.from(context.querySelectorAll(selectorElement)) as T[];
     }
@@ -22,21 +25,24 @@ export function ensureAllElements<T extends HTMLElement>(selectorElement: Select
     if (Array.isArray(selectorElement)) {
         return selectorElement;
     }
-    throw new Error(`Unknown selector element`);
+    throw new Error('Unknown selector element');
 }
 
 export type SelectorElement<T> = T | string;
 
-export function ensureElement<T extends HTMLElement>(selectorElement: SelectorElement<T>, context?: HTMLElement): T {
+export function ensureElement<T extends HTMLElement>(
+    selectorElement: SelectorElement<T>,
+    context: HTMLElement = document.body
+): T {
     if (isSelector(selectorElement)) {
         const elements = ensureAllElements<T>(selectorElement, context);
         if (elements.length > 1) {
-            console.warn(`selector ${selectorElement} return more then one element`);
+            console.warn(`Selector "${selectorElement}" returned more than one element`);
         }
         if (elements.length === 0) {
-            throw new Error(`selector ${selectorElement} return nothing`);
+            throw new Error(`Selector "${selectorElement}" returned no elements`);
         }
-        return elements.pop() as T;
+        return elements[0];
     }
     if (selectorElement instanceof HTMLElement) {
         return selectorElement as T;
@@ -46,28 +52,35 @@ export function ensureElement<T extends HTMLElement>(selectorElement: SelectorEl
 
 export function cloneTemplate<T extends HTMLElement>(query: string | HTMLTemplateElement): T {
     const template = ensureElement(query) as HTMLTemplateElement;
-    return template.content.firstElementChild.cloneNode(true) as T;
+    const clone = template.content.firstElementChild?.cloneNode(true) as T;
+    if (!clone) {
+        throw new Error('Template has no content');
+    }
+    return clone;
 }
 
-export function bem(block: string, element?: string, modifier?: string): { name: string, class: string } {
-    let name = block;
-    if (element) name += `__${element}`;
-    if (modifier) name += `_${modifier}`;
+export function bem(block: string, element?: string, modifier?: string): { name: string; class: string } {
+    const name = [
+        block,
+        element && `__${element}`,
+        modifier && `_${modifier}`
+    ].filter(Boolean).join('');
+    
     return {
         name,
         class: `.${name}`
     };
 }
 
-export function getObjectProperties(obj: object, filter?: (name: string, prop: PropertyDescriptor) => boolean): string[] {
-    return Object.entries(
-        Object.getOwnPropertyDescriptors(
-            Object.getPrototypeOf(obj)
-        )
-    )
-        .filter(([name, prop]: [string, PropertyDescriptor]) => filter ? filter(name, prop) : (name !== 'constructor'))
-        .map(([name, prop]) => name);
+export function getObjectProperties(
+    obj: object,
+    filter: (name: string, prop: PropertyDescriptor) => boolean = (name) => name !== 'constructor'
+): string[] {
+    return Object.entries(Object.getOwnPropertyDescriptors(Object.getPrototypeOf(obj)))
+        .filter(([name, prop]) => filter(name, prop))
+        .map(([name]) => name);
 }
+
 
 /**
  * Устанавливает dataset атрибуты элемента
@@ -98,38 +111,52 @@ export function isPlainObject(obj: unknown): obj is object {
         prototype === null;
 }
 
-export function isBoolean(v: unknown): v is boolean {
-    return typeof v === 'boolean';
-}
 
 /**
- * Фабрика DOM-элементов в простейшей реализации
- * здесь не учтено много факторов
- * в интернет можно найти более полные реализации
+ * Фабрика DOM-элементов в улучшенной реализации
  */
-export function createElement<
-    T extends HTMLElement
-    >(
+export function createElement<T extends HTMLElement>(
     tagName: keyof HTMLElementTagNameMap,
-    props?: Partial<Record<keyof T, string | boolean | object>>,
-    children?: HTMLElement | HTMLElement []
+    props?: Partial<T>,
+    children?: string | Node | (string | Node)[]
 ): T {
     const element = document.createElement(tagName) as T;
+
     if (props) {
-        for (const key in props) {
-            const value = props[key];
-            if (isPlainObject(value) && key === 'dataset') {
-                setElementData(element, value);
-            } else {
-                // @ts-expect-error fix indexing later
-                element[key] = isBoolean(value) ? value : String(value);
+        Object.entries(props).forEach(([key, value]) => {
+            if (key === 'dataset' && typeof value === 'object') {
+                Object.entries(value).forEach(([dataKey, dataValue]) => {
+                    element.dataset[dataKey] = String(dataValue);
+                });
+            } else if (key === 'style' && typeof value === 'object') {
+                Object.assign(element.style, value);
+            } else if (key.startsWith('on') && typeof value === 'function') {
+                element.addEventListener(key.slice(2).toLowerCase(), value as EventListener);
+            } 
+            else {
+                // @ts-expect-error: Свойство может не существовать на всех HTMLElement
+                element[key] = value;
             }
-        }
+        });
     }
+
     if (children) {
-        for (const child of Array.isArray(children) ? children : [children]) {
-            element.append(child);
+        const appendChild = (child: string | Node) => {
+            if (typeof child === 'string') {
+                element.appendChild(document.createTextNode(child));
+            } else {
+                element.appendChild(child);
+            }
+        };
+
+        if (Array.isArray(children)) {
+            children.forEach(appendChild);
+        } else {
+            appendChild(children);
         }
     }
+
     return element;
 }
+
+

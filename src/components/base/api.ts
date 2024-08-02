@@ -1,8 +1,3 @@
-export type ApiListResponse<Type> = {
-    total: number,
-    items: Type[]
-};
-
 export type ApiPostMethods = 'POST' | 'PUT' | 'DELETE';
 
 export class Api {
@@ -26,17 +21,22 @@ export class Api {
     }
 
     get(uri: string) {
-        return fetch(this.baseUrl + uri, {
+        return this._request(uri, {
             ...this.options,
             method: 'GET'
-        }).then(this.handleResponse);
+        });
     }
 
     post(uri: string, data: object, method: ApiPostMethods = 'POST') {
-        return fetch(this.baseUrl + uri, {
+        return this._request(uri, {
             ...this.options,
             method,
             body: JSON.stringify(data)
-        }).then(this.handleResponse);
+        });
+    }
+
+    _request(url: string, options: RequestInit) {
+        return fetch(this.baseUrl + url, options)
+            .then(this.handleResponse)
     }
 }
