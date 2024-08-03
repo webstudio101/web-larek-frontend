@@ -1,6 +1,7 @@
 
 type EventName = string | RegExp;
-type Subscriber = Function;
+//type Subscriber = Function;
+type Subscriber = (event: object) => void;
 type EmitterEvent = {
     eventName: string,
     data: unknown

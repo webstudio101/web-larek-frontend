@@ -19,7 +19,7 @@ export class OrderForm extends Form<IOrder> {
         this.buttonCashPayment.addEventListener('click', () => this.togglePaymentMethod('cash'));
     }
 
-    private toggleButton(button: HTMLButtonElement, state: boolean = true): void {
+      private toggleButton(button: HTMLButtonElement, state = true): void {
         button.classList.toggle('button_alt-active', state);
     }
 

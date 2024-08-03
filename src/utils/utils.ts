@@ -94,13 +94,25 @@ export function setElementData<T extends Record<string, unknown> | object>(el: H
 /**
  * Получает типизированные данные из dataset атрибутов элемента
  */
-export function getElementData<T extends Record<string, unknown>>(el: HTMLElement, scheme: Record<string, Function>): T {
+// export function getElementData<T extends Record<string, unknown>>(el: HTMLElement, scheme: Record<string, Function>): T {
+//     const data: Partial<T> = {};
+//     for (const key in el.dataset) {
+//         data[key as keyof T] = scheme[key](el.dataset[key]);
+//     }
+//     return data as T;
+// }
+
+export function getElementData<T extends Record<string, unknown>>(el: HTMLElement, scheme: Record<string, (schema: string) => T[keyof T]>): T {
     const data: Partial<T> = {};
     for (const key in el.dataset) {
-        data[key as keyof T] = scheme[key](el.dataset[key]);
+        if (key in scheme) {
+            data[key as keyof T] = scheme[key](el.dataset[key] as string);
+        }
     }
     return data as T;
 }
+
+
 
 /**
  * Проверка на простой объект
